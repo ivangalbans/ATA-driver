@@ -38,7 +38,7 @@ DAPS_NUMBER_OF_SECTORS  equ DAPS_BASE +  2
 DAPS_DST_OFFSET         equ DAPS_BASE +  4
 DAPS_DST_SEGMENT        equ DAPS_BASE +  6
 DAPS_LBA_LOW            equ DAPS_BASE +  8
-DAPS_LBA_HIGH           equ DAPS_BASE + 10
+DAPS_LBA_HIGH           equ DAPS_BASE + 12
 ;
 ;   0x0510 : Space to hold the device we were loaded by BIOS at.
 DEVICE                  equ 0x0510
@@ -156,14 +156,13 @@ sector dd 0 ; This is the sector number of this sector when written to disk.
 
 _relocate:                ; The whole purpose of this code is to relocate this
   xor ax, ax              ; sector to a lower location. This will allow us to
-  mov word ds, ax         ; later load the kernel at address 0x1000, thus 
+  mov word ds, ax         ; later load the kernel at address 0x1000, thus
   mov word es, ax         ; giving us around 25KB extra space to store it.
   mov word si, 0x7c00
   mov word di, VBR_BASE
   mov word cx, 512
   rep movsb
   mov ax, main
-  xchg bx, bx
   jmp ax
 
 
@@ -253,6 +252,7 @@ load_sectors:
   mov byte [DAPS_SIZE_OF_PACKET], 16
 
   ; Load the rest of args for INT 0x13, AH = 0x42.
+  xor eax, eax
   mov ah, 0x42
   mov si, DAPS_BASE
   int 0x13
@@ -712,7 +712,7 @@ load_zone:
     push word err_zone
     call print_str
     hlt
- 
+
 ; Compares two strings.
 ; C signature:
 ;   int strcmp(char *s1, char *s2);
