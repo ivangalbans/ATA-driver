@@ -1,0 +1,4 @@
+tests/images/*
+tests/.last-build
+build/*
+tools/install-buhos-bootloader
