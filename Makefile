@@ -22,12 +22,18 @@ build/kernel_init.bin: src/kernel/kernel_init.asm
 
 build/kernel.elf: build/kernel.o \
 								  build/kernel_entry.o \
-									build/string.o
+									build/string.o \
+									build/io.o \
+									build/hw.o \
+									build/fb.o
 	${LD} -m elf_i386 -T src/kernel/kernel.ld -nostdlib -static \
 				-o build/kernel.elf \
 				build/kernel_entry.o \
 				build/kernel.o \
-				build/string.o
+				build/fb.o \
+				build/string.o \
+				build/io.o \
+				build/hw.o
 
 build/kernel_entry.o: src/kernel/kernel_entry.asm
 	${AS} -f elf -o build/kernel_entry.o src/kernel/kernel_entry.asm
@@ -38,11 +44,14 @@ build/kernel.o: src/kernel/kernel.c
 build/string.o: src/kernel/string.c
 	${CC} ${CC_FLAGS} -o build/string.o src/kernel/string.c
 
-build/math.o: src/kernel/math.c
-	${CC} ${CC_FLAGS} -o build/math.o src/kernel/math.c
+build/io.o: src/kernel/io.asm
+	${AS} -f elf -o build/io.o src/kernel/io.asm
 
-build/debug.o: src/kernel/debug.asm
-	${AS} -f elf -o build/debug.o src/kernel/debug.asm
+build/hw.o: src/kernel/hw.asm
+	${AS} -f elf -o build/hw.o src/kernel/hw.asm
+
+build/fb.o: src/kernel/drivers/fb.c
+	${CC} ${CC_FLAGS} -o build/fb.o src/kernel/drivers/fb.c
 
 ### Clean ###
 
