@@ -268,44 +268,6 @@ load_sectors:
     call print_str
     hlt
 
-;; Compares two strings.
-;; C signature:
-;;   int strcmp(char *s1, char *s2);
-;strcmp:
-;  ; These are our vars and args.
-;  %define st_arg_s1     bp + 4
-;  %define st_arg_s2     bp + 6
-;
-;  push bp
-;  mov bp, sp
-;
-;  mov word si, [st_arg_s1]
-;  mov word di, [st_arg_s2]
-;
-;  _strcmp_loop:
-;    mov byte al, [si]
-;    mov byte bl, [di]
-;    cmp al, bl
-;    jl _strcmp_lt
-;    jg _strcmp_gt
-;    cmp al, 0
-;    je _strcmp_eq
-;    inc si
-;    inc di
-;    jmp _strcmp_loop
-;
-;  _strcmp_lt:
-;    mov ax, -1
-;    jmp _strcmp_done
-;  _strcmp_gt:
-;    mov ax, 1
-;    jmp _strcmp_done
-;  _strcmp_eq:
-;    mov ax, 0
-;  _strcmp_done:
-;    pop bp
-;    ret
-
 ; Main code.
 main:
   cli             ; Clear interrupts so HALT is HALT.
@@ -646,7 +608,7 @@ load_zone:
     mov word [lz_level_2], -1
     sub ax, 7
     mov word [lz_level_1], ax
-    mov word [lz_level_1], 7 ; TODO: Check when I have a properly large file.
+    mov word [lz_level_0], 7 ; TODO: Check when I have a properly large file.
     jmp _lz_load_level_0
   _lz_level_2:
     sub ax, 519
