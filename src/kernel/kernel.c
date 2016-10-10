@@ -1,3 +1,5 @@
+#include <string.h>
+
 void print(char *msg) {
   int i;
   char *b = (char *)0xb8000;
@@ -7,5 +9,10 @@ void print(char *msg) {
 }
 
 void kmain(void *gdt_base, void *mem_map) {
-  print("hola");
+  print("lola");
+
+  char *msg = "Hola %dd %wo %bb %qx";
+  char buf[100];
+  sprintf(buf, msg, 1000, 0724, 0xf4, 0xa0b1c2d3e4f567);
+  print(buf);
 }
