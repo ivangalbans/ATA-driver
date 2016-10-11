@@ -54,10 +54,29 @@ void kmain(void *gdt_base, void *mem_map) {
 }
 
 void kmain2() {
+  char *s, *c;
+
   fb_reset();
   fb_set_fg_color(FB_COLOR_BLUE);
   fb_set_bg_color(FB_COLOR_WHITE);
   fb_clear();
-  fb_printf("Testing fb_printf(\"hex qword: %%qx, bin word: %%wb\", 0xabcdef0123456789, 10100101): %qx, %wb", 0xabcdef0123456789, 0xa5);
+  mem_inspect();
+  mem_inspect_alloc();
+
+  s = (char *)kalloc(100);
+  if (s == NULL)
+    kernel_panic("Could not allocate memory for s");
+  mem_inspect_alloc();
+
+  c = (char *)kalloc(100);
+  if (c == NULL)
+    kernel_panic("Could not allocate memory for c");
+  mem_inspect_alloc();
+
+  kfree(s);
+  mem_inspect_alloc();
+  kfree(c);
+  mem_inspect_alloc();
+
   hw_hlt();
 }
