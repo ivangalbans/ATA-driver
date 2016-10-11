@@ -248,11 +248,12 @@ void mem_inspect() {
   u8 v, w;
   u32 f, r_start;
 
+  fb_printf("mem_inspect:\n");
   for (f = 0, w = 4 /* Invalid status */; f < mem_total_frames; f++) {
     v = mem_bitmap_get_entry(f);
     if (v != w) {
       if (w < 4)
-        fb_printf("[%d,%d] = %d\n", r_start, f - 1, w);
+        fb_printf("[%dd,%dd] = %bd\n", r_start, f - 1, w);
       r_start = f;
       w = v;
     }
@@ -392,9 +393,10 @@ void kfree(void * ptr) {
 
 void mem_inspect_alloc() {
   struct mem_entry *e;
+  fb_printf("mem_inspect_alloc:\n");
   e = &mem_head;
   while (e != NULL) {
-    fb_printf("entry { flags: %d, size: %d, prev: %d, next: %d }\n",
+    fb_printf("entry { flags: %dx, size: %dd, prev: %dx, next: %dx }\n",
               e->flags, e->size, e->prev, e->next);
     e = e->next;
   }
