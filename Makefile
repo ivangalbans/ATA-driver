@@ -25,7 +25,9 @@ build/kernel.elf: build/kernel.o \
 									build/string.o \
 									build/io.o \
 									build/hw.o \
-									build/fb.o
+									build/fb.o \
+									build/mem.o \
+									build/mem_asm.o
 	${LD} -m elf_i386 -T src/kernel/kernel.ld -nostdlib -static \
 				-o build/kernel.elf \
 				build/kernel_entry.o \
@@ -33,25 +35,33 @@ build/kernel.elf: build/kernel.o \
 				build/fb.o \
 				build/string.o \
 				build/io.o \
-				build/hw.o
+				build/hw.o \
+				build/mem.o \
+				build/mem_asm.o
 
 build/kernel_entry.o: src/kernel/kernel_entry.asm
 	${AS} -f elf -o build/kernel_entry.o src/kernel/kernel_entry.asm
 
-build/kernel.o: src/kernel/kernel.c
+build/kernel.o: src/kernel/kernel.c src/kernel/include/*.h
 	${CC} ${CC_FLAGS} -o build/kernel.o src/kernel/kernel.c
 
-build/string.o: src/kernel/string.c
+build/string.o: src/kernel/string.c src/kernel/include/string.h
 	${CC} ${CC_FLAGS} -o build/string.o src/kernel/string.c
 
-build/io.o: src/kernel/io.asm
+build/io.o: src/kernel/io.asm src/kernel/include/io.h
 	${AS} -f elf -o build/io.o src/kernel/io.asm
 
-build/hw.o: src/kernel/hw.asm
+build/hw.o: src/kernel/hw.asm src/kernel/include/hw.h
 	${AS} -f elf -o build/hw.o src/kernel/hw.asm
 
-build/fb.o: src/kernel/drivers/fb.c
+build/fb.o: src/kernel/drivers/fb.c src/kernel/include/fb.h
 	${CC} ${CC_FLAGS} -o build/fb.o src/kernel/drivers/fb.c
+
+build/mem.o: src/kernel/drivers/mem.c src/kernel/include/mem.h
+	${CC} ${CC_FLAGS} -o build/mem.o src/kernel/drivers/mem.c
+
+build/mem_asm.o: src/kernel/drivers/mem.asm src/kernel/include/mem.h
+	${AS} -f elf -o build/mem_asm.o src/kernel/drivers/mem.asm
 
 ### Clean ###
 

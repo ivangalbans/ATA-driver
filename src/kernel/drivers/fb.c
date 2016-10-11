@@ -99,31 +99,146 @@ void fb_set_cur(fb_row_t r, fb_col_t c) {
   }
 }
 
-void fb_write(char *str) {
-  int count;
+void fb_sync_cur() {
+  fb_set_cur(fb_row(), fb_col());
+}
 
-  for (count = 0;
-       str[count] != '\0';
-       fb_base_addr[pos * 2] = str[count],
+void fb_write(char *str, u32 len) {
+  int i;
+
+  for (i = 0;
+       i < len && str[i] != '\0';
+       fb_base_addr[pos * 2] = str[i],
        fb_base_addr[pos * 2 + 1] = col,
-       pos = (pos + 1) % (80  *25),
-       count ++) {
+       pos = (pos + 1) % (FB_COLS * FB_ROWS),
+       i ++) {
   }
-
-  fb_set_cur(FB_ROW(pos), FB_COL(pos));
 }
 
 void fb_clear() {
-  int i;
-
-  for (i = 0; i < 80 * 25; i++) {
-    fb_base_addr[2 * i] = ' ';
-    fb_base_addr[2 * i + 1] = col;
+  for (pos = 0; pos < FB_COLS * FB_ROWS; pos ++) {
+    fb_base_addr[pos * 2] = ' ';
+    fb_base_addr[pos * 2 + 1] = col;
   }
-
+  fb_set_pos(0, 0);
   fb_set_cur(0, 0);
 }
 
 int fb_printf(char *fmt, ...) {
-  return 0;
+  #define STATE_LITERAL       0
+  #define STATE_PLACEHOLDER   1
+  #define NUM_BUF_LEN        65
+
+  va_list v;
+  u32 state, count;
+  u8 base;
+  char buf[NUM_BUF_LEN];
+
+  char *s;
+  u8  b;
+  u16 w;
+  u32 d;
+  u64 q;
+
+  state = STATE_LITERAL;
+  va_start(v, fmt);
+
+  for (state = STATE_LITERAL, count = 0; *fmt != '\0'; fmt ++) {
+    if (state == STATE_LITERAL) {
+      switch (*fmt) {
+        case '%':
+          state = STATE_PLACEHOLDER;
+          break;
+        case '\n':
+          fb_set_pos(fb_row() + 1, 0);
+          count ++;
+          break;
+        case '\r':
+          fb_set_pos(fb_row(), 0);
+          count ++;
+          break;
+        default:
+          fb_write(fmt, 1);
+          count ++;
+      }
+    }
+    else {
+      switch (*fmt) {
+        case 's':
+          s = va_arg(v, char *);
+          break;
+        case '%':
+          buf[0] = '%';
+          buf[1] = '\0';
+          s = buf;
+          break;
+        case 'q':
+          q = va_arg(v, u64);
+          fmt ++;
+          switch (*fmt) {
+            case 'b':
+              itoa((u32)(q >> 32), 2, buf, 0);
+              d = strlen(buf);
+              itoa((u32)q, 2, buf + d, 32);
+              break;
+            case 'o':
+            case 'd':
+            case 'x':
+              itoa((u32)(q >> 32), 16, buf, 0);
+              d = strlen(buf);
+              itoa((u32)q, 16, buf + d, 8);
+              strcpy(buf + d, buf + d + 2);
+              break;
+            default:
+              fb_sync_cur();
+              return -1; /* Bad format. */
+          }
+          s = buf;
+          break;
+        default:
+          switch (*fmt) {
+            case 'b':
+              b = (u8)(va_arg(v, u32));
+              d = (u32)b;
+              break;
+            case 'w':
+              w = (u16)va_arg(v, u32);
+              d = (u32)w;
+              break;
+            case 'd':
+              d = va_arg(v, u32);
+              break;
+            default:
+              fb_sync_cur();
+              return -1; /* Bad format. */
+          }
+          fmt++;
+          switch (*fmt) {
+            case 'b':
+              base = 2;
+              break;
+            case 'o':
+              base = 8;
+              break;
+            case 'd':
+              base = 10;
+              break;
+            case 'x':
+              base = 16;
+              break;
+            default:
+              fb_sync_cur();
+              return -1; /* Bad format. */
+          }
+          itoa(d, base, buf, 0);
+          s = buf;
+          break;
+      }
+      fb_write(buf, strlen(buf));
+      count += strlen(buf);
+      state = STATE_LITERAL;
+    }
+  }
+  fb_sync_cur();
+  return count;
 }

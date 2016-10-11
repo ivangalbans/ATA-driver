@@ -8,6 +8,8 @@ a VGA adapter in its default, 80x25, text, color, odd/even mode.
 #ifndef __FB_H__
 #define __FB_H__
 
+#include <typedef.h>
+
 /* Colors */
 enum fb_vga_color {
   FB_COLOR_BLACK = 0,
@@ -57,16 +59,19 @@ void fb_set_pos(fb_row_t, fb_col_t);
 fb_row_t fb_cur_row();
 fb_col_t fb_cur_col();
 void fb_set_cur(fb_row_t, fb_col_t);
+/* Shortcut to synchronize the cursor with the current position. */
+void fb_sync_cur();
 
-/* Writes str at the current position using current color as the color. */
-void fb_write(char *str);
+/* Writes str at the current position using current color as the color. It
+ * does not move the cursor though. */
+void fb_write(char *str, u32 len);
 
 /* Clears the screen by writting white spaces all over it. Sets the cursor
  * at the top-left corner. */
 void fb_clear();
 
 /* Prints a format string to the framebuffer device. It uses the same format
- * sprintf() uses - internally it calls sprintf. */
+ * sprintf() uses. It do keeps the cursor synchronized. */
 int fb_printf(char *fmt, ...);
 
 #endif
