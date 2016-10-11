@@ -150,7 +150,7 @@ int fb_printf(char *fmt, ...) {
           state = STATE_PLACEHOLDER;
           break;
         case '\n':
-          fb_set_pos(fb_row() + 1, 0);
+          fb_set_pos((fb_row() + 1) % FB_ROWS, 0);
           count ++;
           break;
         case '\r':
