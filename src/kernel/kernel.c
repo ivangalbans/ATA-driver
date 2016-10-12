@@ -3,6 +3,8 @@
 #include <string.h>
 #include <mem.h>
 #include <pic.h>
+#include <serial.h>
+#include <kb.h>
 
 /* Just the declaration of the second, main kernel routine. */
 void kmain2();
@@ -55,7 +57,8 @@ void kmain(void *gdt_base, void *mem_map) {
 }
 
 void kmain2() {
-  char *s, *c;
+  serial_port_config_t sc;
+  char buf[2];
 
   fb_reset();
   fb_set_fg_color(FB_COLOR_BLUE);
@@ -74,15 +77,25 @@ void kmain2() {
   if (kb_init() == -1) {
     kernel_panic("Could not initialize the keyboard :(");
   }
-  fb_printf("kb_init() ");
   pic_unmask_dev(PIC_KEYBOARD_IRQ);
+
+  sc.divisor = 3;  /* Baud rate = 115200 / 3 = 38400 */
+  sc.available_interrupts = SERIAL_INT_DATA_AVAILABLE;    /* No interrupts */
+  sc.line_config = SERIAL_CHARACTER_LENGTH_8 |  /* Standard 8N1 config */
+                   SERIAL_PARITY_NONE |
+                   SERIAL_SINGLE_STOP_BIT;
+  if (serial_init(SERIAL_COM1, &sc) == -1) {
+    kernel_panic("Could not intialize COM1 :(");
+  }
+  pic_unmask_dev(PIC_SERIAL_1_IRQ);
 
   /* We can now turn interrupts on, they won't reach us (yet). */
   hw_sti();
 
   /* This is the idle loop. */
   while (1) {
-    fb_printf(".");
-    hw_hlt();
+    buf[0] = 0; buf[1] = 0;
+    serial_read(SERIAL_COM1, buf, 1);
+    fb_write(buf, 1);
   }
 }

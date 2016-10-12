@@ -37,14 +37,12 @@ void itr_interrupt_handler(itr_cpu_regs_t regs,
   /* No one should call this except for the assembly code, so there's no need
    * to check intr.irq for correctness. */
   interrupt_handler_t ih = interrupt_handlers[intr.irq];
-
-  fb_printf(">> Generic intr handler called with IRQ: %dd\n", intr.irq);
-
   if (ih != NULL) {
     /* Call the handler. */
     (*ih)(regs, intr, stack);
   }
   else {
+    fb_printf(">> Generic intr handler called with IRQ: %dd\n", intr.irq);
     /* This only works because we know we only deal with the 8259 PICs.
      * That said, let's just silence the interrupt -some day we'll also log
      * it-. */

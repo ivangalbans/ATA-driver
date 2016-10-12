@@ -31,12 +31,14 @@ build/kernel.elf: build/kernel.o \
 									build/pic.o \
 									build/interrupts.o \
 									build/interrupts_asm.o \
-									build/kb.o
+									build/kb.o \
+									build/serial.o
 	${LD} -m elf_i386 -T src/kernel/kernel.ld -nostdlib -static \
 				-o build/kernel.elf \
 				build/kernel_entry.o \
 				build/kernel.o \
 				build/kb.o \
+				build/serial.o \
 				build/fb.o \
 				build/string.o \
 				build/io.o \
@@ -45,7 +47,7 @@ build/kernel.elf: build/kernel.o \
 				build/mem_asm.o \
 				build/interrupts.o \
 				build/interrupts_asm.o \
-				build/pic.o \
+				build/pic.o
 
 build/kernel_entry.o: src/kernel/kernel_entry.asm
 	${AS} -f elf -o build/kernel_entry.o src/kernel/kernel_entry.asm
@@ -83,6 +85,9 @@ build/interrupts_asm.o: src/kernel/interrupts.asm
 build/kb.o: src/kernel/drivers/kb.c src/kernel/include/kb.h
 	${CC} ${CC_FLAGS} -o build/kb.o src/kernel/drivers/kb.c
 
+build/serial.o: src/kernel/drivers/serial.c src/kernel/include/serial.h
+	${CC} ${CC_FLAGS} -o build/serial.o src/kernel/drivers/serial.c
+
 ### Clean ###
 
 .PHONY: clean
@@ -110,10 +115,10 @@ tests/.last-build: build/kernel
 
 .PHONY: qemu
 qemu: tests/.last-build
-	qemu-system-i386 -drive index=0,media=disk,file=tests/images/disk.img,if=ide,format=raw -m 16
+	qemu-system-i386 -drive index=0,media=disk,file=tests/images/disk.img,if=ide,format=raw -m 16 -serial stdio
 
 qemu-debug: tests/.last-build
-	qemu-system-i386 -drive index=0,media=disk,file=tests/images/disk.img,if=ide,format=raw -m 16 -s -S &
+	qemu-system-i386 -drive index=0,media=disk,file=tests/images/disk.img,if=ide,format=raw -m 16 -serial stdio -s -S &
 	gdbtui --command=tests/gdb.txt
 
 bochs: tests/.last-build
