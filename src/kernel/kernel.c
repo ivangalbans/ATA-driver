@@ -2,6 +2,7 @@
 #include <hw.h>
 #include <string.h>
 #include <mem.h>
+#include <pic.h>
 
 /* Just the declaration of the second, main kernel routine. */
 void kmain2();
@@ -60,23 +61,28 @@ void kmain2() {
   fb_set_fg_color(FB_COLOR_BLUE);
   fb_set_bg_color(FB_COLOR_WHITE);
   fb_clear();
-  mem_inspect();
-  mem_inspect_alloc();
 
-  s = (char *)kalloc(100);
-  if (s == NULL)
-    kernel_panic("Could not allocate memory for s");
-  mem_inspect_alloc();
+  /* Initializes the interrupt subsytem. */
+  if (itr_set_up() == -1) {
+    kernel_panic("Coult not initialize IDT :(");
+  }
 
-  c = (char *)kalloc(100);
-  if (c == NULL)
-    kernel_panic("Could not allocate memory for c");
-  mem_inspect_alloc();
+  /* Initializes the PICs. This mask all interrupts. */
+  pic_init();
 
-  kfree(s);
-  mem_inspect_alloc();
-  kfree(c);
-  mem_inspect_alloc();
+  /* Activate the keyboard. */
+  if (kb_init() == -1) {
+    kernel_panic("Could not initialize the keyboard :(");
+  }
+  fb_printf("kb_init() ");
+  pic_unmask_dev(PIC_KEYBOARD_IRQ);
 
-  hw_hlt();
+  /* We can now turn interrupts on, they won't reach us (yet). */
+  hw_sti();
+
+  /* This is the idle loop. */
+  while (1) {
+    fb_printf(".");
+    hw_hlt();
+  }
 }

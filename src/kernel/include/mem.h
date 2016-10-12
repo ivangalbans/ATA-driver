@@ -1,18 +1,29 @@
-/* Physical memory will be divided in frame MEM_FRAME_SIZE large, though you
+/* Logically speaking, we'll use a mixed memory model. We'll have two segments
+ * for the kernel, one for code and one for data, covering the whole physical
+ * address space (i.e. Basic Flat Model). On the other side, we'll also have
+ * two more segments, starting at 3M and covering the rest of the address
+ * space (TODO: Should we limit it to the dimensions of the actual available
+ * RAM?) for both user space code and data.
+ *
+ * Physical memory will be divided in frame MEM_FRAME_SIZE large, though you
  * can expect this value to be 4K always.
  *
- *  ------------------- 0xffffffff (4G)
- *  |    USER SPACE   |
- *  |-----------------| 0x00200000 (3M)
- *  |  KERNEL STACK   |
- *  |  KERNEL HEAP    |
- *  |-----------------| 0x00100000 (1M)
- *  |     UNUSED      |
- *  |-----------------| 0x00001000 + sizeof(KERNEL_TEXT)
- *  |   KERNEL TEXT   |
- *  |-----------------| 0x00001000 (4K)
- *  |    RESERVED     |
- *  ------------------- 0x00000000
+ *  +-----+-------------------------- 0xffffffff (4G)
+ *  |     |       |    USER SPACE   |
+ *  |     +-------|-----------------| 0x00300000 (3M)
+ *  |     |       |  KERNEL STACK   |
+ *  |     |       |  KERNEL HEAP    |
+ *  |     |       |-----------------| 0x00100000 (1M)
+ *  |     |       |     UNUSED      |
+ *  |     |       |-----------------| 0x00001000 + sizeof(KERNEL_TEXT)
+ *  |     |       |   KERNEL TEXT   |
+ *  |     |       |-----------------| 0x00001000 (4K)
+ *  |     |       |    RESERVED     |
+ *  +-----|-------------------------- 0x00000000
+ *  |     |
+ *  |     +-- User code and data.
+ *  |
+ *  +-------- Kernel code and data.
  *
  * This means we need at least 3M of RAM to run and, for the time being, we
  * won't be able to run on systems with reserved regions in the [1M,3M] range.
@@ -20,11 +31,33 @@
  * This file includes all memory-related facilities. Part of it is implemented
  * in mem.c, while the other, smaller part requires some assembly and is thus
  * coded in mem.asm.
+ *
  */
 
 #ifndef __MEMORY_H__
 #define __MEMORY_H__
 
+#include <typedef.h>
+
+/* All GDT related functionality are part of the memory subsystem.
+ * We know the earliest stage of the kernel set the GDT with three entries
+ * at offsets 0, 8 and 16 corresponding to NULL, kernel code and kernel data
+ * segments. The other segments will be set up during later during mem_init.
+ */
+#define GDT_NULL_SEGMENT                  0x00
+#define GDT_KERNEL_CODE_SEGMENT           0x08
+#define GDT_KERNEL_DATA_SEGMENT           0x10
+#define GDT_USER_CODE_SEGMENT             0x18
+#define GDT_USER_DATA_SEGMENT             0x20
+#define GDT_TSS                           0x28
+
+#define GDT_RPL_KERNEL                    0x00
+#define GDT_RPL_USER                      0x03
+
+#define GDT_SEGMENT_SELECTOR(S, RPL)      ((u16)((u16)(S) | (u16)(RPL)))
+
+/* Addresses and sizes of the most relevant memory sections in terms of the
+ * kernel address space. */
 #define MEM_FRAME_SIZE            4096
 #define MEM_KERNEL_HEAP_ADDR      0x00100000  /* 1M */
 #define MEM_KERNEL_HEAP_SIZE      0x00200000  /* 2M */

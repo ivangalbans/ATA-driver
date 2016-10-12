@@ -27,17 +27,25 @@ build/kernel.elf: build/kernel.o \
 									build/hw.o \
 									build/fb.o \
 									build/mem.o \
-									build/mem_asm.o
+									build/mem_asm.o \
+									build/pic.o \
+									build/interrupts.o \
+									build/interrupts_asm.o \
+									build/kb.o
 	${LD} -m elf_i386 -T src/kernel/kernel.ld -nostdlib -static \
 				-o build/kernel.elf \
 				build/kernel_entry.o \
 				build/kernel.o \
+				build/kb.o \
 				build/fb.o \
 				build/string.o \
 				build/io.o \
 				build/hw.o \
 				build/mem.o \
-				build/mem_asm.o
+				build/mem_asm.o \
+				build/interrupts.o \
+				build/interrupts_asm.o \
+				build/pic.o \
 
 build/kernel_entry.o: src/kernel/kernel_entry.asm
 	${AS} -f elf -o build/kernel_entry.o src/kernel/kernel_entry.asm
@@ -62,6 +70,18 @@ build/mem.o: src/kernel/drivers/mem.c src/kernel/include/mem.h
 
 build/mem_asm.o: src/kernel/drivers/mem.asm src/kernel/include/mem.h
 	${AS} -f elf -o build/mem_asm.o src/kernel/drivers/mem.asm
+
+build/pic.o: src/kernel/drivers/pic.c src/kernel/include/pic.h
+	${CC} ${CC_FLAGS} -o build/pic.o src/kernel/drivers/pic.c
+
+build/interrupts.o: src/kernel/interrupts.c src/kernel/include/interrupts.h
+	${CC} ${CC_FLAGS} -o build/interrupts.o src/kernel/interrupts.c
+
+build/interrupts_asm.o: src/kernel/interrupts.asm
+	${AS} -f elf -o build/interrupts_asm.o src/kernel/interrupts.asm
+
+build/kb.o: src/kernel/drivers/kb.c src/kernel/include/kb.h
+	${CC} ${CC_FLAGS} -o build/kb.o src/kernel/drivers/kb.c
 
 ### Clean ###
 
@@ -94,7 +114,7 @@ qemu: tests/.last-build
 
 qemu-debug: tests/.last-build
 	qemu-system-i386 -drive index=0,media=disk,file=tests/images/disk.img,if=ide,format=raw -m 16 -s -S &
-	gdb --command=tests/gdb.txt
+	gdbtui --command=tests/gdb.txt
 
 bochs: tests/.last-build
 	bochs -f tests/bochsrc.txt
