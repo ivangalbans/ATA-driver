@@ -68,10 +68,17 @@ function install_kernel() {
   # Mount the partition.
   PARTDEV=${LOOPDEV}p${PARTNO}
   echo "Partition in loop format: $PARTDEV"
-  MOUNTPOINT=`udisksctl mount -b ${PARTDEV} | awk '{ print $NF}'`
-  test x$MOUNTPOINT = x && { echo "Could not mount partition." && exit 1; }
-  MOUNTPOINT=${MOUNTPOINT%.}
-  echo "Mount point: $MOUNTPOINT"
+
+  # Check if it was automounted.
+  if test `mount | grep "^${PARTDEV}" | wc -l` = 1; then
+    MOUNTPOINT=`mount | grep "^${PARTDEV}" | awk '{ print $3 }'`
+    echo "Partition is automounted at $MOUNTPOINT"
+  else
+    MOUNTPOINT=`udisksctl mount -b ${PARTDEV} | awk '{ print $NF }'`
+    test x$MOUNTPOINT = x && { echo "Could not mount partition." && exit 1; }
+    MOUNTPOINT=${MOUNTPOINT%.}
+    echo "Mount point: $MOUNTPOINT"
+  fi
 
   # Copy the kernel.
   cp -v "$KERNEL" "${MOUNTPOINT}/kernel" || { echo "Could not copy kernel." && exit 1; }
@@ -79,10 +86,10 @@ function install_kernel() {
   sync -f "${MOUNTPOINT}/kernel"
 
   # Unmount partition.
-  udisksctl unmount --force -b ${PARTDEV} || { echo "Could not unmount partition." && exit 1; }
+  ( udisksctl unmount --force -b ${PARTDEV} ) || { echo "Could not unmount partition." && exit 1; }
 
   # Delete loop device.
-  udisksctl loop-delete -b ${LOOPDEV} || { echo "Could not remove loop device." && exit 1; }
+  ( udisksctl loop-delete -b ${LOOPDEV} ) || { echo "Could not remove loop device." && exit 1; }
 
   exit 0
 }
