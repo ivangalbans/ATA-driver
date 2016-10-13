@@ -1,5 +1,4 @@
 #include <string.h>
-#include <math.h>
 
 #define NUM_BUF_LEN   65
 
