@@ -88,8 +88,12 @@ function install_kernel() {
   # Unmount partition.
   ( udisksctl unmount --force -b ${PARTDEV} ) || { echo "Could not unmount partition." && exit 1; }
 
-  # Delete loop device.
-  ( udisksctl loop-delete -b ${LOOPDEV} ) || { echo "Could not remove loop device." && exit 1; }
+    # Delete loop device.
+  if test `/sbin/losetup | grep "^${LOOPDEV}" | wc -l` = 1; then
+    ( udisksctl loop-delete -b ${LOOPDEV} ) || { echo "Could not remove loop device." && exit 1; }
+  else
+    echo "Loop device ${LOOPDEV} was auto deleted."
+  fi
 
   exit 0
 }
