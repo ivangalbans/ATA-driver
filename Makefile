@@ -97,20 +97,29 @@ clean:
 
 ### Tools ###
 
-tools/install-buhos-bootloader: tools/src/install-buhos-bootloader.c
-	${CC} -o tools/install-buhos-bootloader tools/src/install-buhos-bootloader.c
-
+tools/btool: tools/src/btool.h \
+						 tools/src/btool.c \
+						 tools/src/mbr.c \
+						 tools/src/bootloader.c \
+						 tools/src/minix.c
+	${CC} -o tools/btool tools/src/mbr.c tools/src/btool.c \
+					 tools/src/bootloader.c tools/src/minix.c
 
 ### One shot rules ###
 
 # Run this once in the beginning.
-tests/images/disk.img: build/mbr.bin build/vbr.bin tools/install-buhos-bootloader
-	./tools/build-disk.sh build tests/images/disk.img build/mbr.bin build/vbr.bin
+tests/images/disk.img: build/mbr.bin build/vbr.bin tools/btool
+	dd if=/dev/zero of=tests/images/disk.img bs=1M count=1 seek=99
+	./tools/btool mbr tests/images/disk.img build/mbr.bin 2048,40960,131,0 43008,61440,131,0 104448,81920,129,1 186368,18432,131,0
+	dd if=/dev/zero of=tests/images/tmp bs=512 count=81920
+	/sbin/mkfs.minix tests/images/tmp
+	dd if=tests/images/tmp of=tests/images/disk.img bs=512 seek=104448 conv=notrunc
+	./tools/btool boot tests/images/disk.img build/vbr.bin
 
 ### Tests ###
 
 tests/.last-build: build/kernel
-	./tools/build-disk.sh kernel tests/images/disk.img build/kernel
+	./tools/btool kernel tests/images/disk.img build/kernel
 	touch tests/.last-build
 
 .PHONY: qemu
