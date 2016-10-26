@@ -35,7 +35,16 @@
 #define ATA_CMD_IDENTIFY_PACKET     0xA1    /* Identify Packet (ATAPI?) */
 #define ATA_CMD_IDENTIFY            0xEC    /* Identify */
 
+/* Words in the Identification Space*/
+#define ATA_IDENT_DEVICETYPE   0
+#define ATA_IDENT_MODEL        54
+#define ATA_IDENT_CAPABILITIES 98
+#define ATA_IDENT_MAX_LBA      120
+#define ATA_IDENT_COMMANDSETS  164
+#define ATA_IDENT_MAX_LBA_EXT  200
+
 /* ATAPI commands */
+#define ATA_IDENTIFY_CMD_MASTER     0xA0
 #define ATAPI_CMD_READ              0xA8    /* ATAPI read */
 #define ATAPI_CMD_EJECT             0x1B    /* ATAPI eject 0==) */
 
@@ -56,6 +65,10 @@
 #define ATA_CH_PRI_CONTROL_BASE     0x03f6
 #define ATA_CH_SEC_BASE             0x0170
 #define ATA_CH_SEC_CONTROL_BASE     0x0376
+#define ATA_CH_THIRD_BASE           0x01E8
+#define ATA_CH_THIRD_CONTROL_BASE   0x03E6
+#define ATA_CH_FOURTH_BASE          0x0168
+#define ATA_CH_FOURTH_CONTROL_BASE  0x0366
 
 /* ATA standard ports.              Offset                  R/W     Width    */
 /* ========================================================================= */
@@ -80,8 +93,122 @@
 #define ATA_CH_SEC_IRQ              15
 
 
+u16 ata_bus_port[] = {ATA_CH_PRI_BASE, ATA_CH_SEC_BASE, 
+                      ATA_CH_THIRD_BASE, ATA_CH_FOURTH_BASE};
+
+u16 ata_bus_control[] = {ATA_CH_PRI_CONTROL_BASE, ATA_CH_SEC_CONTROL_BASE,
+                          ATA_CH_THIRD_CONTROL_BASE, ATA_CH_FOURTH_CONTROL_BASE};
+
+void delay(int ms)
+{
+  while(ms--);
+}
+
+//Detect ATA-ATAPI Devices:
+int identify_command(ata_dev_t * ata, int idx)
+{
+  //Software Reset
+  //outb(ATA_CH_REG_CONTROL(ata_bus_control[idx], 4); 
+    //ESPERAR 400ns
+  
+  char buffer[2048];
+  u8 status = 0, error = FALSE;
+  u8 lo = 0, hi = 0;
+  u8 _present = TRUE;         /* ATA_DEVICE_* */
+  u8 _channel = idx;          /* ATA_CHANNEL_* */
+  u8 _drive = idx;            /* ATA_DRIVE_* */
+  u16 _type;                  /* ATA_TYPE_* */
+  u16 i, tmp;
+
+
+  // (I) Select Drive:
+  outb(ATA_REG_DEVSEL(ata_bus_port[idx]), ATA_IDENTIFY_CMD_MASTER | ((idx % 2) << 4) );
+  delay(40000);
+
+  // (II) Send ATA Identify Command:
+  outb(ATA_REG_COMMAND(ata_bus_port[idx]), ATA_CMD_IDENTIFY);
+  delay(40000);
+
+  if(inb(ATA_REG_STATUS(ata_bus_port[idx])) == 0) //if status = 0
+  { 
+    ata->present = FALSE; //No device
+    ata->channel = _channel / 2;
+    ata->drive = _drive % 2;
+    return 0;
+  }
+
+  // (III) Polling:
+  while(TRUE)
+  {
+      status = inb(ATA_REG_STATUS(ata_bus_port[idx]));
+      if(status & ATA_SR_ERR)// If Err, Device is not ATA.
+      {
+        error = TRUE;
+        break;
+      }
+      if(!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) // Everything is right.
+        break;
+  }
+
+  // (IV) Probe for ATAPI Devices:
+  if(!error)
+  {
+      lo = inb(ATA_REG_LBA1(ata_bus_port[idx]));
+      hi = inb(ATA_REG_LBA2(ata_bus_port[idx]));
+
+      if(lo == 0x14 && hi == 0xEB)
+        _type = ATA_TYPE_ATA;
+
+      else if(lo == 0x69 && hi == 0x96)
+        _type = ATA_TYPE_ATAPI;
+
+      else// Unknown Type (may not be a device).
+        return;
+  }
+
+  // (V) Read Identification Space of the Device:
+  for(i = 0; i < 256*4; i += 4)
+  {
+    tmp = inw(ATA_REG_DATA(ata_bus_port[idx]));
+    buffer[i + 1] = (char)(tmp >> 16);
+    buffer[i] = (char)(tmp - ((buffer[i+1] << 16)));
+  }
+
+  // (VI) Read Device Parameters:
+  ata->present = _present;
+  ata->type = _type;
+  ata->channel = _channel / 2;
+  ata->drive = _drive % 2;
+  ata->signature    = *((u16*) (buffer + ATA_IDENT_DEVICETYPE));
+  ata->capabilities = *((u16*) (buffer + ATA_IDENT_CAPABILITIES));
+  ata->commandsets  = *((u32*) (buffer + ATA_IDENT_COMMANDSETS));
+
+
+  // (VII) Get Size:
+  if (ata->commandsets & (1 << 26))
+      // Device uses 48-Bit Addressing:
+      ata->size   = *((u32*) (buffer + ATA_IDENT_MAX_LBA_EXT));
+
+  else
+     // Device uses CHS or 28-bit Addressing:
+     ata->size = *((u32*) (buffer + ATA_IDENT_MAX_LBA));
+
+
+  // (VIII) String indicates model of device (like Western Digital HDD and SONY DVD-RW...):
+  for(i = 0; i < 40; i += 2)
+  {
+      ata->model[i] = buffer[ATA_IDENT_MODEL + i + 1];
+      ata->model[i + 1] = buffer[ATA_IDENT_MODEL + i];
+  } 
+  ata->model[40] = 0; // Terminate String.
+
+  return error ? -1 : 0;
+}
+
+
 /* Initialize all ATA devices. */
-int ata_init(ata_dev_t *devs[]) {
+int ata_init(ata_dev_t *devs[])
+{
   /* TODO: Esta función debe devolver en el arreglo que se pasa como argumento
    *       la información de los cuatro posibles dispositivos ATA. En caso de
    *       que algún dispositivo no se encuentre, deberá rellenar los campos
@@ -93,7 +220,16 @@ int ata_init(ata_dev_t *devs[]) {
    *       los manejadores de interrupciones.
    *       En caso de encontrarse algún error se deberá de retornar -1, en
    *       caso contrario 0. */
-  return -1;
+
+   int error = 0;
+   int i;
+   for(i = 0; i < 4; ++i)
+   {
+      if(identify_command(devs[i], i) == -1)
+        error = -1;
+   }
+
+  return error;
 }
 
 /* Read count sectors, starting at start, from dev into buf. */
