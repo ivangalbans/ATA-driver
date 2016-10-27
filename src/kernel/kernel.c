@@ -5,6 +5,7 @@
 #include <pic.h>
 #include <serial.h>
 #include <kb.h>
+#include <ata.h>
 
 /* Just the declaration of the second, main kernel routine. */
 void kmain2();
@@ -91,6 +92,11 @@ void kmain2() {
 
   /* We can now turn interrupts on, they won't reach us (yet). */
   hw_sti();
+
+  ata_dev_t disk[4]; 
+  ata_dev_t *dp[4] = { disk, disk + 1, disk + 2, disk + 3};
+
+  ata_init(dp);
 
   /* This is the idle loop. */
   while (1) {

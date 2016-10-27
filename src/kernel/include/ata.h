@@ -26,6 +26,7 @@ typedef struct ata_dev {
   char model[41];     /* Model in string. */
 } ata_dev_t;
 
+void detail_dev(ata_dev_t*);
 void delay(int);
 int identify_command(ata_dev_t *, int);
 int ata_init(ata_dev_t *[]);
