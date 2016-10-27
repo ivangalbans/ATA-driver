@@ -1,4 +1,5 @@
 #include <ata.h>
+#include <fb.h>
 
 /* Status */
 #define ATA_SR_BSY                  0x80    /* Busy */
@@ -111,14 +112,14 @@ int identify_command(ata_dev_t * ata, int idx)
   //outb(ATA_CH_REG_CONTROL(ata_bus_control[idx], 4); 
     //ESPERAR 400ns
   
-  char buffer[2048];
+  char buffer[512];
   u8 status = 0, error = FALSE;
   u8 lo = 0, hi = 0;
   u8 _present = TRUE;         /* ATA_DEVICE_* */
   u8 _channel = idx;          /* ATA_CHANNEL_* */
   u8 _drive = idx;            /* ATA_DRIVE_* */
   u16 _type;                  /* ATA_TYPE_* */
-  u16 i, tmp;
+  u16 i;
 
 
   // (I) Select Drive:
@@ -167,12 +168,9 @@ int identify_command(ata_dev_t * ata, int idx)
   }
 
   // (V) Read Identification Space of the Device:
-  for(i = 0; i < 256*4; i += 4)
-  {
-    tmp = inw(ATA_REG_DATA(ata_bus_port[idx]));
-    buffer[i + 1] = (char)(tmp >> 16);
-    buffer[i] = (char)(tmp - ((buffer[i+1] << 16)));
-  }
+  short *ptr = (short *)buffer;
+  for(i = 0; i < 256; ++i)
+    ptr[i] = inw(ATA_REG_DATA(ata_bus_port[idx]));
 
   // (VI) Read Device Parameters:
   ata->present = _present;
@@ -195,11 +193,8 @@ int identify_command(ata_dev_t * ata, int idx)
 
 
   // (VIII) String indicates model of device (like Western Digital HDD and SONY DVD-RW...):
-  for(i = 0; i < 40; i += 2)
-  {
-      ata->model[i] = buffer[ATA_IDENT_MODEL + i + 1];
-      ata->model[i + 1] = buffer[ATA_IDENT_MODEL + i];
-  } 
+  for(i = 0; i < 40; ++i)
+      ata->model[i] = buffer[ATA_IDENT_MODEL + i];
   ata->model[40] = 0; // Terminate String.
 
   return error ? -1 : 0;
