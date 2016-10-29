@@ -2,7 +2,8 @@
 #include <fb.h>
 #include <io.h>
 #include <device.h>
-//#include <stdint.h>
+#include <string.h>
+#include <mem.h>
 
 /* Status */
 #define ATA_SR_BSY                  0x80    /* Busy */
@@ -123,10 +124,11 @@ void delay(u16 dev, u8 ms)
 }
 
 //Detect ATA-ATAPI Devices:
-u8 identify_command(ata_dev_t * ata, u8 idx, u8 * buffer)
+u8 identify_command(ata_dev_t * ata, u8 idx, char * buffer)
 {
   u8 status = 0;
   u8 _channel = idx / 2;          /* ATA_CHANNEL_* */
+  u8 _drive = idx % 2;            /* ATA_DRIVE_* */
   u16 i;
 
   // (I) Select Drive:
@@ -161,65 +163,42 @@ u8 identify_command(ata_dev_t * ata, u8 idx, u8 * buffer)
         *(u8*)(buffer + i*2) = inw(ATA_REG_DATA(ata_bus_port[_channel]));
   }
 
-  
-
-  // (IV) Probe for ATAPI Devices:
- /* if(!error)
-  {
-      lo = inb(ATA_REG_LBA1(ata_bus_port[_channel]));
-      hi = inb(ATA_REG_LBA2(ata_bus_port[_channel]));
-
-      if(lo == 0x14 && hi == 0xEB)
-        _type = ATA_TYPE_ATA;
-
-      else if(lo == 0x69 && hi == 0x96)
-        _type = ATA_TYPE_ATAPI;
-
-     // else// Unknown Type (may not be a device).
-       // return;
-
-
-      // (II) Send ATA Identify Packet Command:
-      outb(ATA_REG_COMMAND(ata_bus_port[_channel]), ATA_CMD_IDENTIFY_PACKET);
-  }
-
-  
-  // (V) Read Identification Space of the Device:
-  short *ptr = (short *)buffer;
-  for(i = 0; i < 256; ++i)
-    ptr[i] = inw(ATA_REG_DATA(ata_bus_port[_channel]));
-
-  // (VI) Read Device Parameters:
-  ata->present = _present;
-  ata->type = _type;
-  ata->channel = _channel / 2;
-  ata->drive = _drive % 2;
-  ata->signature    = *((u16*) (buffer + ATA_IDENT_DEVICETYPE));
-  ata->capabilities = *((u16*) (buffer + ATA_IDENT_CAPABILITIES));
-  ata->commandsets  = *((u32*) (buffer + ATA_IDENT_COMMANDSETS));
-
-
-  // (VII) Get Size:
-  if (ata->commandsets & (1 << 26))
-      // Device uses 48-Bit Addressing:
-      ata->size   = *((u32*) (buffer + ATA_IDENT_MAX_LBA_EXT));
-
-  else
-     // Device uses CHS or 28-bit Addressing:
-     ata->size = *((u32*) (buffer + ATA_IDENT_MAX_LBA));
-
-
-  // (VIII) String indicates model of device (like Western Digital HDD and SONY DVD-RW...):
-  for(i = 0; i < 40; ++i)
-      ata->model[i] = buffer[ATA_IDENT_MODEL + i];
-  ata->model[40] = 0; // Terminate String.
-
-  return error ? -1 : 0;*/
-
-
+  ata->drive = _drive;
   return 1;
 }
 
+
+void ata_build(ata_dev_t * dev, u8 idx, char* buffer)
+{
+    int i;
+    u8 _channel = idx / 2;
+    u16 _type;           /* ATA_TYPE_* */
+    u8 cl, ch;
+
+    /* Model goes from W#27 to W#46 */
+    for(i = 0; i < 40; i += 2)
+    {
+      dev->model[i] = buffer[ATA_IDENT_MODEL + i + 1];
+      dev->model[i+1] = buffer[ATA_IDENT_MODEL + i];
+    }
+   // str[40] = 0;
+    
+
+    cl = inb(ATA_REG_LBA1(ata_bus_port[_channel]));
+    ch = inb(ATA_REG_LBA2(ata_bus_port[_channel]));
+
+    if (cl==0x14 && ch==0xEB) _type = ATADEV_PATAPI;
+    if (cl==0x69 && ch==0x96) _type = ATADEV_SATAPI;
+    if (cl==0 && ch == 0)     _type = ATADEV_PATA;
+    if (cl==0x3c && ch==0xc3) _type = ATADEV_SATA;
+    _type = ATADEV_UNKNOWN;
+
+    
+    dev->type = _type;
+    dev->signature    = *((u16*) (buffer + ATA_IDENT_DEVICETYPE));
+    dev->capabilities = *((u16*) (buffer + ATA_IDENT_CAPABILITIES));
+    dev->commandsets  = *((u32*) (buffer + ATA_IDENT_COMMANDSETS));
+}
 
 /* Initialize all ATA devices. */
 int ata_init(ata_dev_t* devs[])
@@ -237,26 +216,18 @@ int ata_init(ata_dev_t* devs[])
    *       caso contrario 0. */
 
    int error = 0;
-   u8 buffer[512];
-   int i;
+   char buffer[512];
+   u8 i;
    for(i = 0; i < 4; ++i)
    {
 
-
+      
+      devs[i] = (ata_dev_t*)kalloc(sizeof(ata_dev_t));
       fb_printf("Dev: %dd \n", i);   
       
       if(identify_command(devs[i], i, buffer))
       {
-
-        /* Model goes from W#27 to W#46 */
-        /*for(b = 0; b < 40; b += 2)
-        {
-          str[b] = buffer[ATA_IDENT_MODEL + i + 1];
-          str[b+1] = buffer[ATA_IDENT_MODEL + i];
-        }*/
-
-
-
+        ata_build(devs[i], i, buffer);
         detail_dev(devs[i]);
         fb_printf("*******\n");
       }

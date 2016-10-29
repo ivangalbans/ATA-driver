@@ -11,7 +11,14 @@
 #define ATA_DRIVE_SLAVE           0x01
 #define ATA_TYPE_ATA              0x00
 #define ATA_TYPE_ATAPI            0x01
+
+
 #define ATA_SIZE
+
+enum ata_type{ATADEV_PATAPI, ATADEV_SATAPI, 
+				ATADEV_PATA, ATADEV_SATA, 
+				ATADEV_UNKNOWN};
+
 
 /* Public ATA device structure. */
 typedef struct ata_dev {
@@ -26,10 +33,11 @@ typedef struct ata_dev {
   char model[41];     /* Model in string. */
 } ata_dev_t;
 
+void ata_build(ata_dev_t*, u8, char*);
 void detail_dev(ata_dev_t*);
 void delay(u16, u8);
-u8 identify_command(ata_dev_t *, u8, u8*);
-int ata_init();
+u8 identify_command(ata_dev_t *, u8, char*);
+int ata_init(ata_dev_t * []);
 int ata_read(ata_dev_t *, int, int, void *);
 int ata_write(ata_dev_t *, int, int, void *);
 

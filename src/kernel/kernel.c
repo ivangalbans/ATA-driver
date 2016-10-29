@@ -93,7 +93,9 @@ void kmain2() {
   /* We can now turn interrupts on, they won't reach us (yet). */
   hw_sti();
 
-  ata_init();
+
+  ata_dev_t* devs[4];
+  ata_init(devs);
 
   /* This is the idle loop. */
   while (1) {
