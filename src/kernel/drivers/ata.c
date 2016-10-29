@@ -1,6 +1,8 @@
 #include <ata.h>
 #include <fb.h>
 #include <io.h>
+#include <device.h>
+//#include <stdint.h>
 
 /* Status */
 #define ATA_SR_BSY                  0x80    /* Busy */
@@ -101,11 +103,6 @@ u16 ata_bus_port[] = {ATA_CH_PRI_BASE, ATA_CH_SEC_BASE,
 u16 ata_bus_control[] = {ATA_CH_PRI_CONTROL_BASE, ATA_CH_SEC_CONTROL_BASE, 
                           ATA_CH_THIRD_CONTROL_BASE, ATA_CH_FOURTH_CONTROL_BASE};
 
-void delay(int ms)
-{
-  while(ms--);
-}
-
 void detail_dev(ata_dev_t* dev)
 {
   fb_printf("present = %dd\n", dev->present);
@@ -119,47 +116,55 @@ void detail_dev(ata_dev_t* dev)
   fb_printf("model = %s\n", dev->model);
 }
 
+void delay(u16 dev, u8 ms)
+{
+  while(ms--)
+    inb(ATA_REG_STATUS(dev));
+}
 
 //Detect ATA-ATAPI Devices:
-int identify_command(ata_dev_t * ata, int idx)
+u8 identify_command(ata_dev_t * ata, u8 idx, u8 * buffer)
 {
-  char buffer[512];
-  u8 status = 0, error = FALSE;
-  u8 lo = 0, hi = 0;
-  u8 _present = TRUE;         /* ATA_DEVICE_* */
+  u8 status = 0;
   u8 _channel = idx / 2;          /* ATA_CHANNEL_* */
-  u8 _drive = idx % 2;            /* ATA_DRIVE_* */
-  u16 _type;                  /* ATA_TYPE_* */
   u16 i;
 
   // (I) Select Drive:
   outb(ATA_REG_DEVSEL(ata_bus_port[_channel]), ATA_IDENTIFY_CMD_MASTER | ((idx % 2) << 4) );
 
+  /* ATA specs say these values must be zero before sending IDENTIFY */
+  outb(ATA_REG_SECCOUNT0(ata_bus_port[_channel]), 0);
+  outb(ATA_REG_LBA0(ata_bus_port[_channel]), 0);
+  outb(ATA_REG_LBA1(ata_bus_port[_channel]), 0);
+  outb(ATA_REG_LBA2(ata_bus_port[_channel]), 0);
+
   // (II) Send ATA Identify Command:
   outb(ATA_REG_COMMAND(ata_bus_port[_channel]), ATA_CMD_IDENTIFY);
 
-  if(inb(ATA_REG_STATUS(ata_bus_port[_channel])) == 0) //if status = 0
-  {
+  /*read status port */
+  status = inb(ATA_REG_STATUS(ata_bus_port[_channel]));
 
-    ata->present = FALSE; //No device
-    return 0;
-  }
-
-  // (III) Polling:
-  while(TRUE)
+  if(status)
   {
-      status = inb(ATA_REG_STATUS(ata_bus_port[_channel]));
-      if(status & ATA_SR_ERR)// If Err, Device is not ATA.
+    // (III) Polling:
+      while(TRUE)
       {
-        error = TRUE;
-        break;
+          status = inb(ATA_REG_STATUS(ata_bus_port[_channel]));
+          if(status & ATA_SR_ERR)// If Err, Device is not ATA.
+            return 0;
+
+          if(!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) // Everything is right.
+            break;
       }
-      if(!(status & ATA_SR_BSY) && (status & ATA_SR_DRQ)) // Everything is right.
-        break;
+
+      for(i = 0; i < 256; ++i)
+        *(u8*)(buffer + i*2) = inw(ATA_REG_DATA(ata_bus_port[_channel]));
   }
+
+  
 
   // (IV) Probe for ATAPI Devices:
-  if(!error)
+ /* if(!error)
   {
       lo = inb(ATA_REG_LBA1(ata_bus_port[_channel]));
       hi = inb(ATA_REG_LBA2(ata_bus_port[_channel]));
@@ -178,6 +183,7 @@ int identify_command(ata_dev_t * ata, int idx)
       outb(ATA_REG_COMMAND(ata_bus_port[_channel]), ATA_CMD_IDENTIFY_PACKET);
   }
 
+  
   // (V) Read Identification Space of the Device:
   short *ptr = (short *)buffer;
   for(i = 0; i < 256; ++i)
@@ -208,7 +214,10 @@ int identify_command(ata_dev_t * ata, int idx)
       ata->model[i] = buffer[ATA_IDENT_MODEL + i];
   ata->model[40] = 0; // Terminate String.
 
-  return error ? -1 : 0;
+  return error ? -1 : 0;*/
+
+
+  return 1;
 }
 
 
@@ -228,24 +237,34 @@ int ata_init(ata_dev_t* devs[])
    *       caso contrario 0. */
 
    int error = 0;
+   u8 buffer[512];
    int i;
    for(i = 0; i < 4; ++i)
    {
+
+
       fb_printf("Dev: %dd \n", i);   
       
-      if(identify_command(devs[i], i) == -1)
+      if(identify_command(devs[i], i, buffer))
       {
-        fb_printf("ERROR\n");
-        error = -1;
-      }
-      else if( (devs[i]-> present) == 0)
-      {
-        fb_printf("NOT FOUND\n");
+
+        /* Model goes from W#27 to W#46 */
+        /*for(b = 0; b < 40; b += 2)
+        {
+          str[b] = buffer[ATA_IDENT_MODEL + i + 1];
+          str[b+1] = buffer[ATA_IDENT_MODEL + i];
+        }*/
+
+
+
+        detail_dev(devs[i]);
+        fb_printf("*******\n");
       }
       else
       {
-        detail_dev(devs[i]);
-        fb_printf("*******\n");
+        fb_printf("ERROR\n");
+        error = -1;
+        
       }
    }
 
