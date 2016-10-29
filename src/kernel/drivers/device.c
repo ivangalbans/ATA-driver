@@ -35,3 +35,13 @@ void device_print()
 		detail_dev(devices[i]);
 	}
 }
+
+void device_add(ata_dev_t* dev)
+{
+	devices[lastid++] = *dev;
+}
+
+u8 device_length()
+{
+	return lastid;
+}
