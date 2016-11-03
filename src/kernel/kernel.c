@@ -94,8 +94,26 @@ void kmain2() {
   hw_sti();
 
 
-  ata_dev_t* devs[4];
+  
+  ata_dev_t dp[4];
+  ata_dev_t* devs[] = {dp, dp+1, dp+2, dp+3};
+
   ata_init(devs);
+
+  char *a = "TESTING OUR PROJECT";
+  char *b = "IVAN Y RAYDEL";
+  char *c = kalloc(512);
+  char *d = kalloc(512);
+
+  ata_write(devs[0], 20, 1, a);
+  ata_write(devs[0], 25, 1, b);
+  ata_read(devs[0], 20, 1, c);
+  ata_read(devs[0], 25, 1, d);
+
+  fb_printf(c);
+  fb_printf("\n");
+  fb_printf(d);
+  fb_printf("\n");
 
   /* This is the idle loop. */
   while (1) {

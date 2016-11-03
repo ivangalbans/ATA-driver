@@ -262,10 +262,9 @@ int poll(int channel)
   while(status & ATA_SR_BSY)
     status = inb(ATA_REG_STATUS(channel));
 
-
-  while(1)
+  while(TRUE)
   {
-    if((status & ATA_SR_ERR)||(status & ATA_SR_DF)){
+    if((status & ATA_SR_ERR) || (status & ATA_SR_DF)){
       fb_printf("Operation Errors");
       return -1;
   }
@@ -291,11 +290,11 @@ int ata_read(ata_dev_t *dev, int start, int count, void *buf) {
   while(inb(ATA_REG_STATUS(ch)) & ATA_SR_BSY);
 
   outb(ATA_REG_DEVSEL(ch), 0xE0 | ((dev->drive) << 4) );
-  outb(ATA_REG_ERROR(ch), 0);
-  outb(ATA_REG_SECCOUNT0(ch), (unsigned char)count);
-  outb(ATA_REG_LBA0(ch),(unsigned char)(start & 0x000000FF));
-  outb(ATA_REG_LBA1(ch),(unsigned char)((start & 0x0000FF00)>>8));
-  outb(ATA_REG_LBA2(ch),(unsigned char)((start & 0x00FF0000)>>16));
+  //outb(ATA_REG_ERROR(ch), 0);
+  outb(ATA_REG_SECCOUNT0(ch), count);
+  outb(ATA_REG_LBA0(ch),(start & 0x000000FF));
+  outb(ATA_REG_LBA1(ch),((start & 0x0000FF00)>>8));
+  outb(ATA_REG_LBA2(ch),((start & 0x00FF0000)>>16));
   outb(ATA_REG_COMMAND(ch),ATA_CMD_READ_PIO);
 
   for(i = 0; i < count; ++i)
