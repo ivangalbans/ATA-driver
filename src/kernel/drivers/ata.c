@@ -298,6 +298,13 @@ int ata_read(ata_dev_t *dev, int start, int count, void *buf) {
   outb(ATA_REG_LBA2(ch),(unsigned char)((start & 0x00FF0000)>>16));
   outb(ATA_REG_COMMAND(ch),ATA_CMD_READ_PIO);
 
+  for(i = 0; i < count; ++i)
+  {
+    if(poll(ch))
+      return -1;
+    for(j = 0; j < 256; ++j)
+      ptr[i*256 + j] = inw(ATA_REG_DATA(ch));
+  }
   
   return 0;
 }
