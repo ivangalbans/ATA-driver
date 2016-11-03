@@ -15,9 +15,8 @@
 
 #define ATA_SIZE
 
-enum ata_type{ATADEV_PATAPI, ATADEV_SATAPI, 
-				ATADEV_PATA, ATADEV_SATA, 
-				ATADEV_UNKNOWN};
+enum ata_type{ATA_TYPE_ATAA, ATA_TYPE_ATAPII, ATA_TYPE_PATAPI, 
+              ATA_TYPE_SATAPI, ATA_TYPE_SATA, ATA_TYPE_UNKNOWN};
 
 
 /* Public ATA device structure. */
@@ -35,7 +34,7 @@ typedef struct ata_dev {
 
 void ata_build(ata_dev_t*, u8, char*);
 void detail_dev(ata_dev_t*);
-void delay(u16, u8);
+void delay(u16, int);
 u8 identify_command(ata_dev_t *, u8, char*);
 int ata_init(ata_dev_t * []);
 int ata_read(ata_dev_t *, int, int, void *);
