@@ -305,7 +305,7 @@ int ata_read(ata_dev_t *dev, int start, int count, void *buf) {
     for(j = 0; j < 256; ++j)
       ptr[i*256 + j] = inw(ATA_REG_DATA(ch));
   }
-  
+
   return 0;
 }
 
@@ -317,5 +317,28 @@ int ata_write(ata_dev_t *dev, int start, int count, void *buf) {
    *       se solicitó, de lo contrario deberá reportar un error.
    *       0 como valor de retorno indica éxito, -1 indica fallo. */
   
+  int i, j;
+  u16 ch = ata_bus_port[dev->channel];
+  u16 *ptr = (u16 *)buf;
+
+  while(inb(ATA_REG_STATUS(ch)) & ATA_SR_BSY);
+
+  outb(ATA_REG_DEVSEL(ch), 0xE0 | ((dev->drive) << 4) );
+  outb(ATA_REG_ERROR(ch), 0);
+  outb(ATA_REG_SECCOUNT0(ch), (unsigned char)count);
+  outb(ATA_REG_LBA0(ch),(unsigned char)(start & 0x000000FF));
+  outb(ATA_REG_LBA1(ch),(unsigned char)((start & 0x0000FF00)>>8));
+  outb(ATA_REG_LBA2(ch),(unsigned char)((start & 0x00FF0000)>>16));
+  outb(ATA_REG_COMMAND(ch),ATA_CMD_WRITE_PIO);
+
+  for(i = 0;i < count; ++i)
+  {
+    if(poll(ch))
+      return -1;
+    for(j = 0;j < 256 ; ++j)
+      outw(ATA_REG_DATA(ch),ptr[i*256 + j]);
+  }
+  
+  return 0;
 
 }
