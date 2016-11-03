@@ -26,7 +26,7 @@
 #define ATA_ER_AMNF                 0x01    /* No address mark */
 
 /* Commands */
-#define ATA_CMD_READ_PIO            0xE0    /* Read PIO mode, CHS/LBA28 */
+#define ATA_CMD_READ_PIO            0x20    /* Read PIO mode, CHS/LBA28 */
 #define ATA_CMD_READ_PIO_EXT        0x24    /* Read PIO mode, LBA48 */
 #define ATA_CMD_READ_DMA            0xC8    /* Read DMA mode, LBA28 */
 #define ATA_CMD_READ_DMA_EXT        0x25    /* Read DMA mode, LBA48 */
@@ -132,6 +132,7 @@ u8 identify_command(ata_dev_t * dev, u8 idx, char * buffer)
   u8 lba1, lba2;
   u8 status = 0, error;
   u8 _channel = idx / 2;          /* ATA_CHANNEL_* */
+  u8 _drive = idx % 2;
   u16 i;
 
   // (I) Select Drive:
@@ -190,7 +191,8 @@ u8 identify_command(ata_dev_t * dev, u8 idx, char * buffer)
   for(i = 0; i < 256; ++i)
     *(u16*)(buffer + i*2) = inw(ATA_REG_DATA(ata_bus_port[_channel]));
 
-
+  dev->channel = _channel;
+  dev->drive = _drive;
   dev->signature    = *((u16*) (buffer + ATA_IDENT_DEVICETYPE));
   dev->capabilities = *((u16*) (buffer + ATA_IDENT_CAPABILITIES));
   dev->commandsets  = *((u32*) (buffer + ATA_IDENT_COMMANDSETS));
@@ -250,6 +252,30 @@ int ata_init(ata_dev_t* devs[])
   return error;
 }
 
+int poll(int channel)
+{
+  u8 status;
+  delay(channel, 400);
+
+  status = inb(ATA_REG_STATUS(channel));
+
+  while(status & ATA_SR_BSY)
+    status = inb(ATA_REG_STATUS(channel));
+
+
+  while(1)
+  {
+    if((status & ATA_SR_ERR)||(status & ATA_SR_DF)){
+      fb_printf("Operation Errors");
+      return -1;
+  }
+    if((status & ATA_SR_DRQ))
+      return 0;
+    status = inb(ATA_REG_STATUS(channel));
+  }
+  return 0;
+}
+
 /* Read count sectors, starting at start, from dev into buf. */
 int ata_read(ata_dev_t *dev, int start, int count, void *buf) {
   /* TODO: Esta función deberá leer count sectores, comenzando en el sector
@@ -258,13 +284,21 @@ int ata_read(ata_dev_t *dev, int start, int count, void *buf) {
    *       La función debe de garantizar que se ha leído todo lo que se
    *       solicitó, de lo contrario deberá reportar un error.
    *       0 como valor de retorno indica éxito, -1 indica fallo. */
-   u16 ch = ata_bus_port[dev->channel];
+  int i, j;
+  u16 ch = ata_bus_port[dev->channel];
+  u16 *ptr = (u16*)buf;
 
-   while(inb(ATA_REG_STATUS(ata_bus_port[dev->channel])) & ATA_SR_BSY);
+  while(inb(ATA_REG_STATUS(ch)) & ATA_SR_BSY);
 
-   outb(ata_bus_control[dev->channel], ATA_CMD_READ_PIO | ((dev->channel % 2) << 4) );
+  outb(ATA_REG_DEVSEL(ch), 0xE0 | ((dev->drive) << 4) );
+  outb(ATA_REG_ERROR(ch), 0);
+  outb(ATA_REG_SECCOUNT0(ch), (unsigned char)count);
+  outb(ATA_REG_LBA0(ch),(unsigned char)(start & 0x000000FF));
+  outb(ATA_REG_LBA1(ch),(unsigned char)((start & 0x0000FF00)>>8));
+  outb(ATA_REG_LBA2(ch),(unsigned char)((start & 0x00FF0000)>>16));
+  outb(ATA_REG_COMMAND(ch),ATA_CMD_READ_PIO);
 
-
+  
   return 0;
 }
 
@@ -275,5 +309,6 @@ int ata_write(ata_dev_t *dev, int start, int count, void *buf) {
    *       ATAPI. La función debe de garantizar que se ha escrito todo lo que
    *       se solicitó, de lo contrario deberá reportar un error.
    *       0 como valor de retorno indica éxito, -1 indica fallo. */
-  return -1;
+  
+
 }

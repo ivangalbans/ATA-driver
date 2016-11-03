@@ -32,6 +32,7 @@ typedef struct ata_dev {
   char model[41];     /* Model in string. */
 } ata_dev_t;
 
+int poll(int);
 void ata_build(ata_dev_t*, u8, char*);
 void detail_dev(ata_dev_t*);
 void delay(u16, int);
