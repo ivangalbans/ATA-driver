@@ -106,23 +106,23 @@ u16 ata_bus_control[] = {ATA_CH_PRI_CONTROL_BASE, ATA_CH_SEC_CONTROL_BASE,
 
 void detail_dev(ata_dev_t* dev)
 {
-  /*fb_printf("present = %dd\n", dev->present);
+  fb_printf("present = %dd\n", dev->present);
   fb_printf("channel = %dd\n", dev->channel);
   fb_printf("drive = %dd\n", dev->drive);
   fb_printf("type = %dd\n", dev->type);
   fb_printf("signature = %dd\n", dev->signature);
   fb_printf("capabilities = %dd\n", dev->capabilities);
   fb_printf("commandsets = %dd\n", dev->commandsets);
-  fb_printf("size = %dd\n", dev->size);*/
+  fb_printf("size = %dd\n", dev->size);
   fb_write(dev->model, strlen(dev->model));
   fb_printf("\n");
   
 }
 
-void delay(u16 dev, int ms)
+void delay(u16 dev, int ns)
 {
-  ms = ms/100;
-  while(ms--)
+  ns = ns/100;
+  while(ns--)
     inb(ATA_REG_STATUS(dev));
 }
 
@@ -236,18 +236,10 @@ int ata_init(ata_dev_t* devs[])
 
    char buffer[512];
    u8 i, error = 0;
+   
    for(i = 0; i < 4; ++i)
-   {
-      fb_printf("Dev: %dd \n", i);   
-      if(identify_command(devs[i], i, buffer)){
-        fb_printf("ERROR\n");
+      if(identify_command(devs[i], i, buffer))
         error = -1;
-      }
-      else if(devs[i]->present)
-        detail_dev(devs[i]);
-      else
-        fb_printf("DEVICE EMPTY\n");
-   }
 
   return error;
 }
@@ -265,7 +257,6 @@ int poll(int channel)
   while(TRUE)
   {
     if((status & ATA_SR_ERR) || (status & ATA_SR_DF)){
-      fb_printf("Operation Errors");
       return -1;
   }
     if((status & ATA_SR_DRQ))
@@ -290,7 +281,7 @@ int ata_read(ata_dev_t *dev, int start, int count, void *buf) {
   while(inb(ATA_REG_STATUS(ch)) & ATA_SR_BSY);
 
   outb(ATA_REG_DEVSEL(ch), 0xE0 | ((dev->drive) << 4) );
-  //outb(ATA_REG_ERROR(ch), 0);
+  outb(ATA_REG_ERROR(ch), 0);
   outb(ATA_REG_SECCOUNT0(ch), count);
   outb(ATA_REG_LBA0(ch),(start & 0x000000FF));
   outb(ATA_REG_LBA1(ch),((start & 0x0000FF00)>>8));
